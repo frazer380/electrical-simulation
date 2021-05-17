@@ -1,3 +1,5 @@
+const DELTA_TIME: f64 = 10.0;
+
 pub struct Battery {
     current_voltage: f64,
     current_charge: f64, // in Ah
@@ -14,8 +16,8 @@ impl Battery {
         // Linear voltage calculation
         // curr_sink_amps - Current flowing into the battery (recharging)
         // curr_source_amps - Current flowing out of the battery (discharging)
-        if(self.current_charge > 0.0) {
-            self.current_charge = self.current_charge - (self.current_source_amps - self.current_sink_amps); // Current charge = Current charge - (current outgoing amps - incoming amps); if outgoing amps > incoming amps its losing charge
+        if self.current_charge > 0.0 || self.is_charging == true {
+            self.current_charge = self.current_charge - (self.current_source_amps - self.current_sink_amps) * DELTA_TIME / 3600.0; // Current charge = Current charge - (current outgoing amps - incoming amps); if outgoing amps > incoming amps its losing charge
             self.current_voltage = self.capacity * (self.current_charge / self.capacity_amp_hrs);
         } else { self.current_charge = 0.0; self.current_voltage = 0.0; }
     }
@@ -23,10 +25,10 @@ impl Battery {
     fn update_load(&mut self, load: f64) { self.current_source_amps = load; }
 
     fn charge(&mut self) {
-        if self.current_charge <  self.capacity {
+        if self.current_charge < self.capacity {
             self.is_charging = true;
-            self.current_sink_amps = 1.0;
-        } else { self.is_charging = false; println!("Battery does not need to be charged at this moment. "); }
+            self.current_sink_amps = 2.0;
+        } else { self.is_charging = false; self.current_sink_amps = 0.0; }
     }
 
     // Receiving
@@ -36,21 +38,21 @@ impl Battery {
 }
 
 fn main() {
-    let bat_1_load: f64 = 0.0;
-    let bat_2_load: f64 = 1.0;
+    let bat_1_load: f64 = 0.05;
+    let bat_2_load: f64 = 0.5;
 
     let mut bat_1 = Battery{current_voltage: 0.0, current_charge: 6.5, capacity: 6.5, capacity_amp_hrs: 6.25, current_source_amps: 0.0, current_sink_amps: 0.0, is_charging: false};
     let mut bat_2 = Battery{current_voltage: 0.0, current_charge: 6.5, capacity: 6.5, capacity_amp_hrs: 6.15, current_source_amps: 0.0, current_sink_amps: 0.0, is_charging: false};
 
 
-    loop { std::thread::sleep(std::time::Duration::from_millis(1000)); // Simulating 1 frame every x ms
+    loop { std::thread::sleep(std::time::Duration::from_millis(DELTA_TIME as u64)); // Simulating 1 frame every x ms
         // Battery 1 calculations:
         println!("----BAT1----");
         bat_1.update_voltage();
         bat_1.update_load(bat_1_load);
-        println!("VOLTAGE: {}", bat_1.current_voltage);
+        println!("VOLTAGE: {}",bat_1.current_voltage);
         println!("LOAD: {} Amps", bat_1.current_source_amps);
-        println!("CHARRGE: {}%", bat_1.get_soc());
+        println!("CHARGE: {}% (CHARGING: {} @ {}, Amps)", bat_1.get_soc(), bat_1.is_charging, bat_1.current_sink_amps);
 
         // Battery 2 calculations
         bat_2.update_voltage();
@@ -58,8 +60,9 @@ fn main() {
         println!("----BAT2----");
         println!("VOLTAGE: {}",bat_2.current_voltage);
         println!("LOAD: {} Amps", bat_2.current_source_amps);
-        println!("CHARRGE: {}% (CHARGING: {})", bat_2.get_soc(), bat_2.current_sink_amps);
+        println!("CHARGE: {}% (CHARGING: {} @ {}, Amps)", bat_2.get_soc(), bat_2.is_charging, bat_2.current_sink_amps);
 
+        //bat_2.charge();
 
         print!("{}[2J", 27 as char); // Clear console for debug purposes.
 
